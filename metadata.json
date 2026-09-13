@@ -1,0 +1,6 @@
+{
+  "name": "Fútbol API",
+  "description": "Marcadores en vivo, alineaciones oficiales, estadísticas avanzadas, cara a cara y tablas de posiciones de fútbol internacional.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
