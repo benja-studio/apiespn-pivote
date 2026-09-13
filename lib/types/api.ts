@@ -50,6 +50,63 @@ export interface Team {
   color: string | null
 }
 
+export interface TeamProfile {
+  id: string
+  name: string
+  shortName: string
+  location: string | null
+  logo: string | null
+  color: string | null
+  alternateColor: string | null
+  standingSummary: string | null
+  recordSummary: string | null
+  venue: string | null
+  athletesCount?: number
+  athletes?: Athlete[]
+}
+
+// ─── Athletes & Squads ────────────────────────────────────────────────────────
+
+export interface AthletePosition {
+  id: string | null
+  name: string
+  displayName: string
+  abbreviation: string
+}
+
+export interface Athlete {
+  id: string
+  fullName: string
+  displayName: string
+  shortName: string | null
+  jersey: string | null
+  position: AthletePosition
+  citizenship: string | null
+  flag: string | null
+  age: number | null
+  dateOfBirth: string | null
+  height: string | null
+  weight: string | null
+  team: {
+    id: string
+    name: string
+    shortName: string
+    logo: string | null
+  }
+  status: string
+}
+
+export interface AthletesResponse {
+  league: League
+  team?: {
+    id: string
+    name: string
+    shortName: string
+    logo: string | null
+  } | null
+  athletes: Athlete[]
+}
+
 // ─── Match (scoreboard-level) ────────────────────────────────────────────────
 
 export type MatchState = 'live' | 'finished' | 'scheduled'

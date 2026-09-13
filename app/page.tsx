@@ -36,6 +36,7 @@ import type {
   NewsArticle,
   StandingGroup,
   StandingRow,
+  Athlete,
 } from '@/lib/types/api'
 
 // ─── Leagues Catalog ─────────────────────────────────────────────────────────
@@ -138,10 +139,13 @@ export default function Page() {
   const [standingsLoading, setStandingsLoading] = useState(false)
   const [standingsError, setStandingsError] = useState('')
 
-  // Athletes State
+  // Athletes State (Deep extraction)
   const [athletesLeague, setAthletesLeague] = useState('esp.1')
+  const [leagueTeams, setLeagueTeams] = useState<any[]>([])
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
+  const [athletePositionFilter, setAthletePositionFilter] = useState<string>('all')
   const [athletesQuery, setAthletesQuery] = useState('')
-  const [athletes, setAthletes] = useState<any[]>([])
+  const [athletes, setAthletes] = useState<Athlete[]>([])
   const [athletesLoading, setAthletesLoading] = useState(false)
 
   // News State
@@ -250,12 +254,40 @@ export default function Page() {
     loadStandings(standingsLeague)
   }, [standingsLeague, loadStandings])
 
+  // ─── Data Loading: Teams of selected League for Athletes Tab ───────────────
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/teams/${athletesLeague}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) {
+          const tms = d.data?.teams || []
+          setLeagueTeams(tms)
+          if (tms.length > 0 && !selectedTeamId) {
+            setSelectedTeamId(tms[0].id)
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLeagueTeams([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [athletesLeague, selectedTeamId])
+
   // ─── Data Loading: Athletes ────────────────────────────────────────────────
 
-  const loadAthletes = useCallback(async (slug: string, q: string) => {
+  const loadAthletes = useCallback(async (leagueSlug: string, teamId: string, q: string, pos: string) => {
     setAthletesLoading(true)
     try {
-      const url = `/api/athletes/${encodeURIComponent(slug)}${q ? `?q=${encodeURIComponent(q)}` : ''}`
+      const params = new URLSearchParams()
+      if (teamId && teamId !== 'all') params.set('team', teamId)
+      if (q) params.set('q', q)
+      if (pos && pos !== 'all') params.set('position', pos)
+
+      const url = `/api/athletes/${encodeURIComponent(leagueSlug)}${params.toString() ? `?${params.toString()}` : ''}`
       const res = await fetch(url, { cache: 'no-store' })
       const body = await res.json()
       setAthletes(body.data?.athletes || [])
@@ -268,9 +300,9 @@ export default function Page() {
 
   useEffect(() => {
     if (activeTab === 'athletes') {
-      loadAthletes(athletesLeague, athletesQuery)
+      loadAthletes(athletesLeague, selectedTeamId, athletesQuery, athletePositionFilter)
     }
-  }, [activeTab, athletesLeague, athletesQuery, loadAthletes])
+  }, [activeTab, athletesLeague, selectedTeamId, athletesQuery, athletePositionFilter, loadAthletes])
 
   // ─── Data Loading: News ────────────────────────────────────────────────────
 
@@ -394,7 +426,7 @@ export default function Page() {
         </div>
 
         <nav className="sidebar-nav">
-          <div className="nav-group-label">Vistas y Datos</div>
+          <div className="nav-group-label">Vistas Principales</div>
           <button
             className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => {
@@ -469,7 +501,7 @@ export default function Page() {
             <span>Noticias ESPN</span>
           </button>
 
-          <div className="nav-group-label">Desarrolladores</div>
+          <div className="nav-group-label">Desarrolladores & API</div>
           <button
             className={`nav-item ${activeTab === 'api' ? 'active' : ''}`}
             onClick={() => {
@@ -480,7 +512,7 @@ export default function Page() {
           >
             <span className="nav-dot" />
             <Terminal size={14} />
-            <span>API Playground & Swagger</span>
+            <span>API Studio & Swagger</span>
           </button>
 
           <button
@@ -505,7 +537,7 @@ export default function Page() {
         </div>
       </aside>
 
-      {/* Pivote Studio Pro Main Page */}
+      {/* Main Content Area */}
       <main className="main">
         {/* Topbar */}
         <header className="topbar">
@@ -523,7 +555,7 @@ export default function Page() {
             </span>
 
             {coverage && (
-              <span className="badge badge-ghost" style={{ display: 'none' }}>
+              <span className="badge badge-ghost">
                 {coverage.successfulLeagues}/{coverage.requestedLeagues} LIGAS
               </span>
             )}
@@ -715,21 +747,21 @@ export default function Page() {
 
                 <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <TableProperties size={16} style={{ color: 'var(--info)' }} />
-                    <h3 style={{ fontSize: '14px' }}>Tablas de Posiciones</h3>
+                    <UserCheck size={16} style={{ color: 'var(--accent)' }} />
+                    <h3 style={{ fontSize: '14px' }}>Planteles y Futbolistas</h3>
                   </div>
                   <p style={{ color: 'var(--text2)', fontSize: '12px' }}>
-                    Clasificación oficial de todas las ligas con zonas de copas continentales y descensos.
+                    Plantillas completas de cada club, dorsales, posiciones, nacionalidades y edades.
                   </p>
-                  <button className="btn btn-ghost" style={{ alignSelf: 'flex-start', marginTop: 'auto' }} onClick={() => setActiveTab('standings')}>
-                    Ver Clasificaciones <ArrowUpRight size={13} />
+                  <button className="btn btn-ghost" style={{ alignSelf: 'flex-start', marginTop: 'auto' }} onClick={() => setActiveTab('athletes')}>
+                    Ver Planteles <ArrowUpRight size={13} />
                   </button>
                 </div>
 
                 <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Terminal size={16} style={{ color: 'var(--success)' }} />
-                    <h3 style={{ fontSize: '14px' }}>Integración de API</h3>
+                    <h3 style={{ fontSize: '14px' }}>API Studio & Swagger</h3>
                   </div>
                   <p style={{ color: 'var(--text2)', fontSize: '12px' }}>
                     Probá endpoints en vivo en la consola interactiva y copiá código listo para Flutter, React o Python.
@@ -1382,26 +1414,23 @@ export default function Page() {
             <div className="card">
               <div className="card-header">
                 <div>
-                  <h2>Planteles & Jugadores</h2>
-                  <div style={{ fontSize: '12px', color: 'var(--text2)' }}>Catálogo normalizado vía /api/athletes</div>
+                  <h2>Planteles & Futbolistas</h2>
+                  <div style={{ fontSize: '12px', color: 'var(--text2)' }}>
+                    Plantillas oficiales de cada club extraídas en tiempo real
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div className="search-wrap" style={{ width: '240px' }}>
-                    <span className="search-ico"><Search size={14} /></span>
-                    <input
-                      className="input search-input"
-                      placeholder="Buscar futbolista o club…"
-                      value={athletesQuery}
-                      onChange={(e) => setAthletesQuery(e.target.value)}
-                    />
-                  </div>
-
+                {/* Filters */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Select League */}
                   <select
                     className="input"
-                    style={{ width: '200px' }}
+                    style={{ width: '180px' }}
                     value={athletesLeague}
-                    onChange={(e) => setAthletesLeague(e.target.value)}
+                    onChange={(e) => {
+                      setAthletesLeague(e.target.value)
+                      setSelectedTeamId('')
+                    }}
                   >
                     {allLeagues
                       .filter((l) => l.slug !== 'all')
@@ -1411,59 +1440,155 @@ export default function Page() {
                         </option>
                       ))}
                   </select>
+
+                  {/* Select Team */}
+                  <select
+                    className="input"
+                    style={{ width: '200px' }}
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                  >
+                    <option value="all">Todos los clubes de la liga</option>
+                    {leagueTeams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Search Player */}
+                  <div className="search-wrap" style={{ width: '200px' }}>
+                    <span className="search-ico"><Search size={14} /></span>
+                    <input
+                      className="input search-input"
+                      placeholder="Buscar futbolista…"
+                      value={athletesQuery}
+                      onChange={(e) => setAthletesQuery(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="card-body">
+                {/* Position Filter Pills */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+                  <button
+                    className={`btn btn-ghost ${athletePositionFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setAthletePositionFilter('all')}
+                  >
+                    Todos los puestos
+                  </button>
+                  <button
+                    className={`btn btn-ghost ${athletePositionFilter === 'goalkeeper' ? 'active' : ''}`}
+                    onClick={() => setAthletePositionFilter('goalkeeper')}
+                  >
+                    Porteros
+                  </button>
+                  <button
+                    className={`btn btn-ghost ${athletePositionFilter === 'defender' ? 'active' : ''}`}
+                    onClick={() => setAthletePositionFilter('defender')}
+                  >
+                    Defensas
+                  </button>
+                  <button
+                    className={`btn btn-ghost ${athletePositionFilter === 'midfielder' ? 'active' : ''}`}
+                    onClick={() => setAthletePositionFilter('midfielder')}
+                  >
+                    Mediocampistas
+                  </button>
+                  <button
+                    className={`btn btn-ghost ${athletePositionFilter === 'forward' ? 'active' : ''}`}
+                    onClick={() => setAthletePositionFilter('forward')}
+                  >
+                    Delanteros
+                  </button>
+                </div>
+
                 {athletesLoading ? (
                   <div className="empty-state">
                     <span className="spinner" style={{ width: '20px', height: '20px' }} />
-                    <span>Cargando plantilla de jugadores…</span>
+                    <span>Extrayendo plantilla oficial de ESPN…</span>
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
-                    {athletes.map((a: any) => (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+                    {athletes.map((a) => (
                       <div
                         key={a.id}
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          padding: '10px 12px',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          padding: '12px 14px',
                           background: 'var(--bg3)',
                           border: '1px solid var(--border)',
                           borderRadius: 'var(--radius-sm)',
+                          transition: 'border-color var(--t)',
                         }}
                       >
-                        {a.headshot ? (
-                          <img
-                            src={a.headshot}
-                            alt={a.name}
-                            style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', background: 'var(--bg4)' }}
-                          />
-                        ) : (
-                          <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--bg4)', display: 'grid', placeItems: 'center', fontSize: '13px' }}>
-                            ⚽
-                          </div>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span
+                            style={{
+                              fontFamily: 'var(--font-mono)',
+                              fontWeight: 800,
+                              fontSize: '14px',
+                              color: 'var(--accent)',
+                              background: 'var(--accent-dim)',
+                              border: '1px solid var(--accent-glow)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                            }}
+                          >
+                            #{a.jersey || '-'}
+                          </span>
 
-                        <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                            {a.name}
+                          <span className="badge badge-ghost">
+                            {a.position.displayName || a.position.abbreviation}
+                          </span>
+                        </div>
+
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                            {a.displayName}
                           </div>
-                          <div style={{ fontSize: '11px', color: 'var(--accent)', fontFamily: 'monospace' }}>
-                            #{a.jersey || '-'} · {a.position || 'Jugador'}
-                          </div>
-                          <div style={{ fontSize: '10.5px', color: 'var(--text3)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                            {a.team || 'Club'}
-                          </div>
+                          {a.fullName && a.fullName !== a.displayName && (
+                            <div style={{ fontSize: '11px', color: 'var(--text3)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                              {a.fullName}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', color: 'var(--text2)' }}>
+                          {a.flag && (
+                            <img src={a.flag} alt="" style={{ width: '16px', height: '11px', objectFit: 'cover', borderRadius: '2px' }} />
+                          )}
+                          <span>{a.citizenship || 'Internacional'}</span>
+                          {a.age && <span>· {a.age} años</span>}
+                          {a.height && <span>· {a.height}</span>}
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            borderTop: '1px solid var(--border)',
+                            paddingTop: '8px',
+                            marginTop: 'auto',
+                            fontSize: '11px',
+                            color: 'var(--text3)',
+                          }}
+                        >
+                          <TeamLogo logo={a.team.logo} name={a.team.name} shortName={a.team.shortName} />
+                          <span style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', color: 'var(--text2)' }}>
+                            {a.team.name}
+                          </span>
                         </div>
                       </div>
                     ))}
 
                     {athletes.length === 0 && (
                       <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                        No se encontraron jugadores para esta búsqueda.
+                        No se encontraron jugadores con estos filtros.
                       </div>
                     )}
                   </div>
@@ -1573,10 +1698,10 @@ export default function Page() {
                     { label: 'Estadísticas', p: `/api/matches/${selectedMatch?.id || '401882881'}/stats?league=${selectedMatch?.league?.id || 'esp.1'}` },
                     { label: 'Eventos & Goles', p: `/api/matches/${selectedMatch?.id || '401882881'}/events?league=${selectedMatch?.league?.id || 'esp.1'}` },
                     { label: 'Cara a Cara', p: `/api/matches/${selectedMatch?.id || '401882881'}/h2h?league=${selectedMatch?.league?.id || 'esp.1'}` },
-                    { label: 'Cuotas / Odds', p: `/api/matches/${selectedMatch?.id || '401882881'}/odds?league=${selectedMatch?.league?.id || 'esp.1'}` },
                     { label: 'Clasificación', p: `/api/standings/${standingsLeague}` },
-                    { label: 'Equipos', p: `/api/teams/${standingsLeague}` },
-                    { label: 'Jugadores', p: `/api/athletes/${standingsLeague}` },
+                    { label: 'Equipos Liga', p: `/api/teams/${standingsLeague}` },
+                    { label: 'Perfil Club Real Madrid', p: '/api/teams/esp.1/86' },
+                    { label: 'Plantel Jugadores', p: `/api/athletes/${athletesLeague}?team=86` },
                     { label: 'Noticias', p: `/api/news/${newsLeague}` },
                     { label: 'Salud / Health', p: '/api/health' },
                     { label: 'Ligas', p: '/api/leagues' },
