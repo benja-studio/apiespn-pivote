@@ -6,13 +6,23 @@ import type { Athlete, AthletePosition, TeamProfile } from '@/lib/types/api'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+function translatePosition(rawName?: string, rawAbbr?: string) {
+  const n = (rawName || '').toLowerCase()
+  if (n.includes('goalkeeper') || n.includes('portero') || n.includes('arquero')) return { displayName: 'Arquero', abbreviation: 'ARQ' }
+  if (n.includes('defender') || n.includes('defensa') || n.includes('defensor')) return { displayName: 'Defensor', abbreviation: 'DEF' }
+  if (n.includes('midfielder') || n.includes('mediocampista') || n.includes('volante')) return { displayName: 'Mediocampista', abbreviation: 'MED' }
+  if (n.includes('forward') || n.includes('delantero') || n.includes('atacante')) return { displayName: 'Delantero', abbreviation: 'DEL' }
+  return { displayName: rawName || 'Jugador', abbreviation: rawAbbr || 'JUG' }
+}
+
 function normalizeAthlete(rawAthlete: any, teamInfo: { id: string; name: string; shortName: string; logo: string | null }): Athlete {
   const pos = rawAthlete.position || {}
+  const trans = translatePosition(pos.displayName || pos.name, pos.abbreviation)
   const position: AthletePosition = {
     id: pos.id ? String(pos.id) : null,
-    name: pos.name || 'Player',
-    displayName: pos.displayName || pos.name || 'Jugador',
-    abbreviation: pos.abbreviation || 'JUG',
+    name: trans.displayName,
+    displayName: trans.displayName,
+    abbreviation: trans.abbreviation,
   }
 
   return {
@@ -29,7 +39,7 @@ function normalizeAthlete(rawAthlete: any, teamInfo: { id: string; name: string;
     height: rawAthlete.displayHeight || null,
     weight: rawAthlete.displayWeight || null,
     team: teamInfo,
-    status: rawAthlete.status?.name || 'Active',
+    status: rawAthlete.status?.name === 'Active' ? 'Activo' : rawAthlete.status?.name || 'Activo',
   }
 }
 
